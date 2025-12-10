@@ -1,3 +1,5 @@
+This Fork is an adaption for Google BigQuery.
+
 # Slowly Changing Dimension Type 2 (scd2) Custom Materialization dbt Package
 
 ## What does this dbt package do?
