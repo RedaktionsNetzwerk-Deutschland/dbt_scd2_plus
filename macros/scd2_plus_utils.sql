@@ -125,7 +125,7 @@
       where coalesce(prev_scd_hash,'~')<>scd_hash
     )
       select
-       {{ scd_id_col_name }}::varchar(50) as {{ scd_id_col_name }},
+       CAST({{ scd_id_col_name }} AS STRING) as {{ scd_id_col_name }},
     
     {# The query is used in "create table as select..." and "insert/update" in an existing table #}
     {# scd_valid_from_min_date should be used (if configured) only in "create table as select.."#}
@@ -145,7 +145,7 @@
     {% endif %}
 
        {{ scd_valid_to_col_name }},
-       {{ scd_record_version_col_name }}::integer as {{ scd_record_version_col_name }},
+       cAST({{ scd_record_version_col_name }} as INT64) as {{ scd_record_version_col_name }},
        {{ unique_key }},
       {% for c in check_cols %} 
        {{ c }}, 
@@ -158,7 +158,7 @@
       {% endfor %}       
        cast('{{ loaddate }}' as timestamp) as    {{ scd_loaddate_col_name }},
        cast('{{ loaddate }}' as timestamp) as    {{ scd_updatedate_col_name }},
-       scd_hash::varchar(50) as scd_hash
+       CAST(scd_hash as STRING) as scd_hash
       from final_data
     /*final query - only rows with a change in scd_hash*/
 
@@ -298,7 +298,7 @@
 
     /* Update the same version in the target table (duplicates by unique_key and updated_at, but different check_cols) */
 
-    update {{ target }}
+    update {{ target }} t
     set
     {% for c in check_cols %} 
      {{ c }} = data.{{ c }} ,
@@ -308,14 +308,14 @@
     {% endfor %}
     {{ scd_updatedate_col_name }} = cast('{{ loaddate }}' as timestamp)
     from {{ int_table_name }} data
-    where {{ target }}.{{ unique_key }} = data.{{ unique_key }} and 
-          {{ target }}.{{ scd_id_col_name }} = data.{{ scd_id_col_name }} and
-          {{ target }}.scd_hash <> data.scd_hash and 
+    where t.{{ unique_key }} = data.{{ unique_key }} and 
+          t.{{ scd_id_col_name }} = data.{{ scd_id_col_name }} and
+          t.scd_hash <> data.scd_hash and 
           data.new_data=2;
 
     /*----------------Adjusting {{ valid_from }} - {{ valid_to }} in a case of backdated transactions*/
 
-    update {{ target }}
+    update {{ target }} t
     set {{ scd_valid_to_col_name }}=data.{{ scd_valid_to_col_name }},
         {{ scd_record_version_col_name }} = data.{{ scd_record_version_col_name }},
         {{ scd_valid_from_col_name }} = 
@@ -334,8 +334,8 @@
      from {{ target }} dim
      where {{ unique_key }} in (select {{ unique_key }} from {{ target }} where {{ scd_loaddate_col_name }}='{{ loaddate }}')
     ) data
-    where {{ target }}.{{ unique_key }} = data.{{ unique_key }} and 
-          {{ target }}.{{ scd_id_col_name }} = data.{{ scd_id_col_name }};
+    where t.{{ unique_key }} = data.{{ unique_key }} and 
+          t.{{ scd_id_col_name }} = data.{{ scd_id_col_name }};
       
 
 
@@ -346,7 +346,7 @@
     {% if  punch_thru_cols|length > 0 %}
 
 
-    update {{ target }}
+    update {{ target }} t
     set 
     {% for c in punch_thru_cols %} 
      {{ c }} = data.{{ c }} ,
@@ -360,7 +360,7 @@
      {% endfor %}
      from {{ int_table_name }}
     ) data
-    where {{ target }}.{{ unique_key }} = data.{{ unique_key }};
+    where t.{{ unique_key }} = data.{{ unique_key }};
 
     {% endif %}
 
@@ -369,7 +369,7 @@
 
     {% if  update_cols|length > 0 %}
 
-    update {{ target }}
+    update {{ target }} t
     set 
     {% for c in update_cols %} 
      {{ c }} = data.{{ c }} ,
@@ -383,9 +383,9 @@
     {% endfor %}
     from {{ int_table_name }}
     ) data
-    where {{ target }}.{{ unique_key }} = data.{{ unique_key }} and
-          ({{ target }}.{{ scd_valid_to_col_name }} is null or 
-           {{ target }}.{{ scd_valid_to_col_name }}=cast(case when '{{ scd_valid_to_max_date }}'='1900-01-01' then null else '{{ scd_valid_to_max_date }}' end as timestamp));
+    where t.{{ unique_key }} = data.{{ unique_key }} and
+          (t.{{ scd_valid_to_col_name }} is null or 
+           t.{{ scd_valid_to_col_name }}=cast(case when '{{ scd_valid_to_max_date }}'='1900-01-01' then null else '{{ scd_valid_to_max_date }}' end as timestamp));
 
     {% endif %}
 
